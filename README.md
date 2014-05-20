@@ -1,4 +1,1 @@
-unicorn
-=======
-
-An advanced HTTP assets server.
+{Under development..}

@@ -1,0 +1,21 @@
+{
+  "name": "unicorn",
+  "description": "An advanced HTTP asserts server",
+  "keywords": [
+    "unicorn",
+    "pegasus"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nqdeng/unicorn.git"
+  },
+  "author": {
+    "name": "Nanqiao Deng",
+    "email": "nqdeng@gmail.com"
+  },
+  "version": "3.0.0",
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "main": "lib/index.js"
+}
