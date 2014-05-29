@@ -1,6 +1,6 @@
 {
   "name": "unicorn",
-  "description": "An advanced HTTP asserts server",
+  "description": "Assets server with dependencies resolution",
   "keywords": [
     "unicorn",
     "pegasus"
