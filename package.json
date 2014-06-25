@@ -1,21 +1,26 @@
 {
-  "name": "unicornis",
-  "description": "Assets server with dependencies resolution",
-  "keywords": [
-    "unicorn",
-    "pegasus"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nqdeng/unicorn.git"
-  },
-  "author": {
-    "name": "Nanqiao Deng",
-    "email": "nqdeng@gmail.com"
-  },
-  "version": "3.0.0",
-  "engines": {
-    "node": ">=0.10.0"
-  },
-  "main": "lib/index.js"
+	"name": "unicornis",
+	"description": "Assets server with dependencies resolution",
+	"version": "3.0.0",
+	"author": "Nanqiao Deng <nqdeng@gmail.com>",
+	"keywords": [
+		"unicornis",
+		"pegasus"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/nqdeng/unicorn.git"
+	},
+	"license": "MIT",
+	"devDependencies": {
+	    "mocha": "1.18.2",
+	    "should": "4.0.4"
+  	},
+	"engines": {
+		"node": ">=0.10.0"
+	},
+	"main": "lib/index.js",
+	"scripts": {
+		"test": "mocha"
+	}
 }

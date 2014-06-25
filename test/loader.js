@@ -1,5 +1,6 @@
 var assert = require("assert"),
-	loader = require('../lib/loader');
+	loader = require('../lib/loader'),
+	should = require('should');
 
 var FILES = {
 		'a.js': {
@@ -90,238 +91,265 @@ var FILES = {
 				callback(new Error('File not found @' + pathname));
 			}
 		});
+	},
+
+	load = function (pathname, callback) {
+		loader.load(pathname, read, function (error, cache, queue, meta) {
+			callback({
+				error: error,
+				cache: cache,
+				queue: queue,
+				meta: meta
+			});
+		});
 	};
 
 describe('loader.load', function () {
 	describe('normally', function () {
 		it('should load a single file', function (done) {
-			loader.load('/a.css', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
-
-				assert.equal(queue.length, 1,
-					'There should be one file');
-
-				assert.equal(queue[0], 'a.css',
-					'The only file should be "a.css"');
-
-				assert(binaryEqual(cache['a.css'], FILES['a.css'].data),
-					'Data of "a.css" should be right');
-
-				assert.equal(meta.mtime, FILES['a.css'].meta.mtime,
-					'Modified time of "a.css" should be right');
-
-				assert.equal(meta.mime, FILES['a.css'].meta.mime,
-					'MIME of "a.css" should be right');
+			load('/a.css', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'a.css': FILES['a.css'].data
+					},
+					queue: [ 'a.css' ],
+					meta: {
+						mtime: FILES['a.css'].meta.mtime,
+						mime: FILES['a.css'].meta.mime
+					}
+				});
 
 				done();
 			});
 		});
 
 		it('should combine multiple files', function (done) {
-			loader.load('/??a.css,b.css', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
-
-				assert.equal(queue.length, 2,
-					'There should be two files');
-
-				assert.equal(queue[0], 'a.css',
-					'The 1st file should be "a.css"');
-
-				assert.equal(queue[1], 'b.css',
-					'The 2nd file should be "b.css"');
-
-				assert.equal(meta.mtime, Math.max(FILES['a.css'].meta.mtime, FILES['b.css'].meta.mtime),
-					'Modified time should be the later one');
-
-				assert.equal(meta.mime, FILES['a.css'].meta.mime,
-					'MIME should be the same as "a.css"');
-
-				assert.equal(meta.mime, FILES['b.css'].meta.mime,
-					'MIME should be the same as "b.css"');
+			load('/??a.css,b.css', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'a.css': FILES['a.css'].data,
+						'b.css': FILES['b.css'].data
+					},
+					queue: [ 'a.css', 'b.css' ],
+					meta: {
+						mtime: Math.max(
+							FILES['a.css'].meta.mtime,
+							FILES['b.css'].meta.mtime
+						),
+						mime: FILES['a.css'].meta.mime
+					}
+				});
 
 				done();
 			});
 		});
 
-		it('should resolve file dependencies', function (done) {
-			loader.load('/a.js', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
-
-				assert.equal(queue.length, 3,
-					'There should be three files');
-
-				assert.equal(queue[0], 'b.js',
-					'The 1st file should be "b.js"');
-
-				assert.equal(queue[1], 'c.js',
-					'The 2nd file should be "c.js"');
-
-				assert.equal(queue[2], 'a.js',
-					'The 3rd file should be "a.js"');
-
-				done();
-			});
-		});
-
-		it('could exclude nodes from file dependencies', function (done) {
-			loader.load('/??-d.js,a.js', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
-
-				assert.equal(queue.length, 2,
-					'There should be three files');
-
-				assert.equal(queue[0], 'c.js',
-					'The 1st file should be "c.js"');
-
-				assert.equal(queue[1], 'a.js',
-					'The 2nd file should be "a.js"');
+		it('should resolve dependencies', function (done) {
+			load('/??a.js,c.js', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'a.js': FILES['a.js'].data,
+						'b.js': FILES['b.js'].data,
+						'c.js': FILES['c.js'].data
+					},
+					queue: [ 'b.js', 'c.js', 'a.js' ],
+					meta: {
+						mtime: Math.max(
+							FILES['a.js'].meta.mtime,
+							FILES['b.js'].meta.mtime,
+							FILES['c.js'].meta.mtime
+						),
+						mime: FILES['a.js'].meta.mime
+					}
+				});
 
 				done();
 			});
 		});
 
-		it('should ignore dynamic dependencies without params', function (done) {
-			loader.load('/c.js', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
-
-				assert.equal(queue.length, 1,
-					'There should be one file');
-
-				assert.equal(queue[0], 'c.js',
-					'The 1st file should be "c.js"');
+		it('should ignore given nodes from dependencies', function (done) {
+			load('/??-d.js,a.js', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'a.js': FILES['a.js'].data,
+						'b.js': FILES['b.js'].data,
+						'c.js': FILES['c.js'].data,
+						'd.js': FILES['d.js'].data
+					},
+					queue: [ 'c.js', 'a.js' ],
+					meta: {
+						mtime: Math.max(
+							FILES['a.js'].meta.mtime,
+							FILES['c.js'].meta.mtime
+						),
+						mime: FILES['a.js'].meta.mime
+					}
+				});
 
 				done();
 			});
 		});
 
-		it('should use dynamic dependencies with params', function (done) {
-			loader.load('/c.js?x=b', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
+		it('should ignore unknown dynamic dependencies', function (done) {
+			load('/c.js', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'c.js': FILES['c.js'].data
+					},
+					queue: [ 'c.js' ],
+					meta: {
+						mtime: Math.max(
+							FILES['c.js'].meta.mtime
+						),
+						mime: FILES['c.js'].meta.mime
+					}
+				});
 
-				assert.equal(queue.length, 2,
-					'There should be two files');
+				done();
+			});
+		});
 
-				assert.equal(queue[0], 'b.js',
-					'The 1st file should be "b.js"');
-
-				assert.equal(queue[1], 'c.js',
-					'The 1st file should be "c.js"');
+		it('should include known dynamic dependencies', function (done) {
+			load('/c.js?x=b', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'b.js': FILES['b.js'].data,
+						'c.js': FILES['c.js'].data
+					},
+					queue: [ 'b.js', 'c.js' ],
+					meta: {
+						mtime: Math.max(
+							FILES['b.js'].meta.mtime,
+							FILES['c.js'].meta.mtime
+						),
+						mime: FILES['c.js'].meta.mime
+					}
+				});
 
 				done();
 			});
 		});
 	});
 
-	describe('mercifully', function () {
-		it('should ignore duplicate file in one request', function (done) {
-			loader.load('/??a.css,a.css', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
-
-				assert.equal(queue.length, 1,
-					'There should be one file');
-
-				assert.equal(queue[0], 'a.css',
-					'The only file should be "a.css"');
-
-				done();
-			});
-		});
-
-		it('should ignore useless params', function (done) {
-			loader.load('/??c.js?y=b', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
-
-				assert.equal(queue.length, 1,
-					'There should be one file');
-
-				assert.equal(queue[0], 'c.js',
-					'The only file should be "c.js"');
+	describe('wisely', function () {
+		it('should ignore duplicate pathname', function (done) {
+			load('/??a.css,a.css', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'a.css': FILES['a.css'].data
+					},
+					queue: [ 'a.css' ],
+					meta: {
+						mtime: Math.max(
+							FILES['a.css'].meta.mtime
+						),
+						mime: FILES['a.css'].meta.mime
+					}
+				});
 
 				done();
 			});
 		});
 
-		it('should normalize pathnames of dynamic dependencies', function (done) {
-			loader.load('/??c.js?x=c/../b', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
+		it('should ignore unknown params', function (done) {
+			load('/c.js?y=b', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'c.js': FILES['c.js'].data
+					},
+					queue: [ 'c.js' ],
+					meta: {
+						mtime: Math.max(
+							FILES['c.js'].meta.mtime
+						),
+						mime: FILES['c.js'].meta.mime
+					}
+				});
 
-				assert.equal(queue.length, 2,
-					'There should be two file');
+				done();
+			});
+		});
 
-				assert.equal(queue[0], 'b.js',
-					'The only file should be "b.js"');
-
-				assert.equal(queue[1], 'c.js',
-					'The only file should be "c.js"');
+		it('should normalize pathnames in params', function (done) {
+			load('/c.js?x=c/../b', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'b.js': FILES['b.js'].data,
+						'c.js': FILES['c.js'].data
+					},
+					queue: [ 'b.js', 'c.js' ],
+					meta: {
+						mtime: Math.max(
+							FILES['b.js'].meta.mtime,
+							FILES['c.js'].meta.mtime
+						),
+						mime: FILES['c.js'].meta.mime
+					}
+				});
 
 				done();
 			});
 		});
 
 		it('should prevent circular dependencies', function (done) {
-			loader.load('/??c.js?x=a', read, function (err, cache, queue, meta) {
-				assert.equal(err, null,
-					'There should be no error');
-
-				assert.equal(queue.length, 3,
-					'There should be three file');
-
-				assert.equal(queue[0], 'b.js',
-					'The 1st file should be "b.js"');
-
-				assert.equal(queue[1], 'a.js',
-					'The 2nd file should be "a.js"');
-
-				assert.equal(queue[2], 'c.js',
-					'The 3rd file should be "c.js"');
+			load('/c.js?x=a', function (ret) {
+				ret.should.eql({
+					error: null,
+					cache: {
+						'a.js': FILES['a.js'].data,
+						'b.js': FILES['b.js'].data,
+						'c.js': FILES['c.js'].data
+					},
+					queue: [ 'b.js', 'a.js', 'c.js' ],
+					meta: {
+						mtime: Math.max(
+							FILES['a.js'].meta.mtime,
+							FILES['b.js'].meta.mtime,
+							FILES['c.js'].meta.mtime
+						),
+						mime: FILES['c.js'].meta.mime
+					}
+				});
 
 				done();
 			});
 		});
 	});
 
-	describe('mercilessly', function () {
-		it('should generate an error when requested file does not exist', function (done) {
-			loader.load('/c.css', read, function (err, cache, queue, meta) {
-				assert(err instanceof Error,
-					'There should be an error');
-
+	describe('angrily', function () {
+		it('should alert when file not found', function (done) {
+			load('/c.css', function (ret) {
+				assert(ret.error instanceof Error);
 				done();
 			});
 		});
 
-		it('should generate an error when one of requested files does not exist', function (done) {
-			loader.load('/??a.css,c.css', read, function (err, cache, queue, meta) {
-				assert(err instanceof Error,
-					'There should be an error');
-
+		it('should alert when file not found', function (done) {
+			load('/??a.css,c.css', function (ret) {
+				assert(ret.error instanceof Error);
 				done();
 			});
 		});
 
-		it('should generate an error when dependencies do not exist', function (done) {
-			loader.load('/c.js?x=e', read, function (err, cache, queue, meta) {
-				assert(err instanceof Error,
-					'There should be an error');
-
+		it('should alert when dynamic dependency not found', function (done) {
+			load('/c.js?x=e', function (ret) {
+				assert(ret.error instanceof Error);
 				done();
 			});
 		});
 
-		it('should generate an error when combine files with different type', function (done) {
-			loader.load('/??a.js,a.css', read, function (err, cache, queue, meta) {
-				assert(err instanceof Error,
-					'There should be an error');
-
+		it('should alert when MIME conflicts', function (done) {
+			load('/??a.js,a.css', function (ret) {
+				assert(ret.error instanceof Error);
 				done();
 			});
 		});
